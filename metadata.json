@@ -1,0 +1,5 @@
+{
+  "name": "PayMaster - Multi-Tenant Payroll System",
+  "description": "A comprehensive payroll management system for multi-company support, featuring employee management, automated salary calculations, leave tracking, and payslip generation.",
+  "requestFramePermissions": []
+}
