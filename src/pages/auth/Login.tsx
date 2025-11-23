@@ -4,6 +4,7 @@ import axios from 'axios';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
+import { login } from '@/src/services/apiService';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -21,8 +22,8 @@ export const Login: React.FC = () => {
     setError(null);
 
     try {
-      const response = await axios.post('http://localhost:8080/auth/login', formData);
-      const { token, userId, username, companyId, userRole } = response.data;
+      const { token, userId, username, companyId, userRole } =
+        await login(formData);
 
       localStorage.setItem('token', token);
       localStorage.setItem('userId', userId);

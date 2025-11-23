@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { getCompanyDetails, getEmployeesByCompany } from '@/src/services/apiService';
 
 const StatCard: React.FC<{ title: string; value: string | number; color: string }> = ({ title, value, color }) => (
   <div className={`bg-white p-6 rounded-lg shadow-sm border-l-4 ${color}`}>
@@ -30,18 +31,18 @@ export const Dashboard: React.FC = () => {
       try {
         setLoading(true);
         const companyId = localStorage.getItem('companyId');
-        const userRole = localStorage.getItem('userRole'); // assuming role is stored in localStorage
+        const userRole = localStorage.getItem('userRole');
         setRole(userRole);
 
         if (!companyId) throw new Error('Company ID not found');
 
         const [companyRes, employeesRes] = await Promise.all([
-          axios.get(`http://localhost:8080/api/companies/${companyId}`),
-          axios.get(`http://localhost:8080/api/employees/company/${companyId}`),
+          getCompanyDetails(companyId),
+          getEmployeesByCompany(companyId),
         ]);
 
-        setCompany(companyRes.data);
-        setEmployees(employeesRes.data);
+        setCompany(companyRes);
+        setEmployees(employeesRes);
       } catch (err: any) {
         setError(err.message || 'Failed to fetch dashboard data');
       } finally {

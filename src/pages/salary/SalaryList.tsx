@@ -39,7 +39,9 @@ export const SalaryList: React.FC = () => {
         setEmployees(empData);
 
         const config = await getPayrollConfiguration(companyId);
-        console.log("Payroll Config:", config);
+        if (config === null) {
+          toast.error("Payroll configuration not set. Please set it up first.");
+        }
         setPayrollConfig(config);
 
       } catch (err: any) {

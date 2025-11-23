@@ -2,11 +2,13 @@ import axios from 'axios';
 import { UUID } from 'crypto';
 
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_BASE_URL,
+    baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
 });
+
+
 
 export interface Employee {
     employeeId: string;
@@ -41,6 +43,24 @@ export const createEmployee = async (employee: EmployeeCreate) => {
     return response.data;
 };
 
+
+
+
+export interface LoginResponse {
+    token: string;
+    userId: string;
+    username: string;
+    companyId: string;
+    userRole: string;
+}
+export interface LoginRequest {
+    email: string;
+    password: string;
+}
+export const login = async (data: LoginRequest): Promise<LoginResponse> => {
+    const response = await api.post<LoginResponse>('/auth/login', data);
+    return response.data;
+}
 
 export const getEmployeesByCompany = async (companyId: string): Promise<Employee[]> => {
     const response = await api.get<Employee[]>(`/employees/company/${companyId}`);
@@ -234,3 +254,17 @@ export const getPayrollsByCompanyAndEmployee = async (companyId: string, employe
 
 
 
+
+export interface CompanyDetails {
+    name: string;
+    email: string;
+    contactNumber: string;
+    address: string;
+    registrationNumber: string;
+    // Assuming the company fetch response has these fields
+};
+
+export const getCompanyDetails = async (companyId: string): Promise<CompanyDetails> => {
+    const response = await api.get<CompanyDetails>(`/companies/${companyId}`);
+    return response.data;
+}
