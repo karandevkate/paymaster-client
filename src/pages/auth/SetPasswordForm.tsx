@@ -15,12 +15,15 @@ export const SetPasswordForm: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!token) return toast.error('Invalid token');
+        if (!token) {
+            toast.error('Invalid or missing token');
+            return;
+        }
 
         setLoading(true);
         try {
             await setPassword(token, password);
-            toast.success('Password set successfully!');
+            toast.success('Password set successfully! You can now log in.');
             navigate('/login');
         } catch (err: any) {
             toast.error(err.response?.data?.message || 'Failed to set password');
@@ -30,21 +33,52 @@ export const SetPasswordForm: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-            <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
-                <h2 className="text-2xl font-bold mb-6">Set Your Password</h2>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <Input
-                        label="New Password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPasswordValue(e.target.value)}
-                        required
-                    />
-                    <Button type="submit" className="w-full" isLoading={loading}>
-                        Set Password
-                    </Button>
-                </form>
+        <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light p-3">
+            <div className="card shadow-lg border-0" style={{ maxWidth: '450px', width: '100%' }}>
+                <div className="card-body p-5">
+
+                    {/* Title */}
+                    <div className="text-center mb-5">
+                        <h2 className="fw-bold text-primary fs-3">Set Your Password</h2>
+                        <p className="text-muted">Create a secure password for your admin account</p>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleSubmit} className="row g-3">
+                        <div className="col-12">
+                            <Input
+                                label="New Password"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPasswordValue(e.target.value)}
+                                placeholder="Enter a strong password"
+                                required
+                            />
+                        </div>
+
+                        <div className="col-12">
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                isLoading={loading}
+                                block
+                                className="w-100 py-2"
+                            >
+                                {loading ? 'Setting Password...' : 'Set Password'}
+                            </Button>
+                        </div>
+                    </form>
+
+                    {/* Optional: Back to Login */}
+                    <div className="text-center mt-4">
+                        <button
+                            onClick={() => navigate('/login')}
+                            className="text-muted text-decoration-none btn btn-link"
+                        >
+                            Back to Login
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

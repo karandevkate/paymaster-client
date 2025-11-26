@@ -2,7 +2,8 @@ import axios from 'axios';
 import { UUID } from 'crypto';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL,
+    baseURL: "http://localhost:8080/api",
+    // baseURL: import.meta.env.VITE_API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -16,6 +17,7 @@ export interface Employee {
     name: string;
     email: string;
     contactNumber: string;
+    gender: 'MALE' | 'FEMALE' | 'OTHER';
     department: string;
     designation: string;
     employeeStatus: string;
@@ -31,6 +33,7 @@ export interface EmployeeCreate {
     birthdate?: string;
     designation: string;
     joiningDate: string;
+    gender: '' | 'MALE' | 'FEMALE' | 'OTHER';
     password: string;
     companyId: string;
 }
@@ -77,6 +80,7 @@ export interface CompanyRegisterData {
     registrationNumber: string;
     adminName: string;
     adminEmail: string;
+    gender: string;
 }
 
 export const registerCompany = async (data: CompanyRegisterData) => {
@@ -89,11 +93,11 @@ export const registerCompany = async (data: CompanyRegisterData) => {
 export const setPassword = async (token: string, password: string) => {
     const response = await api.post(
         `/employees/set-password`,
-        null, // no request body
+        null,
         {
             params: {
                 token: token,
-                newPassword: password   // ← must match @RequestParam name exactly!
+                newPassword: password
             }
         }
     );
@@ -104,31 +108,59 @@ export const setPassword = async (token: string, password: string) => {
 
 export interface PayrollConfigurationRequestDto {
     companyId: string;
-    hraPercentage: number;
-    daPercentage: number;
-    pfPercentage: number;
-    taxSlab1Limit: number;
-    taxSlab1Percentage: number;
-    taxSlab2Limit: number;
-    taxSlab2Percentage: number;
-    taxSlab3Percentage: number;
+
+    hraApplicable?: boolean;
+    conveyanceApplicable?: boolean;
+    medicalApplicable?: boolean;
+    specialAllowanceApplicable?: boolean;
+    bonusApplicable?: boolean;
+
+    hraPercentage?: number;
+    conveyanceAmount?: number;
+    medicalAllowanceAmount?: number;
+    specialAllowancePercentage?: number;
+    bonusPercentage?: number;
+
+    pfApplicable?: boolean;
+    esiApplicable?: boolean;
+    pfEmployeePercentage?: number;
+    pfEmployerPercentage?: number;
+    esiEmployeePercentage?: number;
+    esiEmployerPercentage?: number;
+    professionalTax?: number;
+
+    taxSlab1Limit?: number;
+    taxSlab1Rate?: number;
+    taxSlab2Limit?: number;
+    taxSlab2Rate?: number;
+    taxSlab3Limit?: number;
+    taxSlab3Rate?: number;
+    isActive?: boolean;
 }
+
 
 export interface PayrollConfigurationResponseDto extends PayrollConfigurationRequestDto {
     payrollConfigurationId: string;
+    isActive: boolean;
 }
 
-
-export const fetchPayrollConfigurationByCompanyId = async (companyId: string): Promise<PayrollConfigurationResponseDto> => {
-    const response = await api.get<PayrollConfigurationResponseDto>(`/payroll-configurations/${companyId}`);
-    return response.data;
+export const fetchPayrollConfigurationByCompanyId = async (companyId: string): Promise<PayrollConfigurationResponseDto | null> => {
+    try {
+        const response = await api.get<PayrollConfigurationResponseDto>(`/payroll-configurations/${companyId}`);
+        return response.data;
+    } catch (err: any) {
+        if (err.response?.status === 404) {
+            return null; // First time — no config yet
+        }
+        throw err;
+    }
 };
 
 export const addPayrollConfiguration = async (
     payload: PayrollConfigurationRequestDto
 ): Promise<string> => {
     const response = await api.post<string>('/payroll-configurations', payload);
-    return response.data; // This will be the string message
+    return response.data;
 };
 
 export const updatePayrollConfig = async (
@@ -143,8 +175,10 @@ export const updatePayrollConfig = async (
 export interface SalaryStructureRequestDto {
     employeeId: string;
     companyId: string;
+
     basicSalary: number;
     specialAllowance: number;
+    bonusAmount?: number;
 }
 
 export interface SalaryStructureResponseDto {
@@ -152,11 +186,27 @@ export interface SalaryStructureResponseDto {
     employeeId: string;
     employeeName: string;
     companyId: string;
+
     basicSalary: number;
+    hra: number;
+    conveyance: number;
+    medicalAllowance: number;
     specialAllowance: number;
+    bonusAmount: number;
+
+    grossSalary: number;
+    ctc: number;
+
+    pfEmployee: number;
+    pfEmployer: number;
+    esiEmployee: number;
+    esiEmployer: number;
+    professionalTax: number;
+    incomeTax: number;
+
+    netSalary: number;
 }
 
-// Create salary structure
 export const createSalaryStructure = async (
     payload: SalaryStructureRequestDto
 ): Promise<string> => {
@@ -164,7 +214,6 @@ export const createSalaryStructure = async (
     return response.data;
 };
 
-// Update salary structure
 export const updateSalaryStructure = async (
     payload: SalaryStructureRequestDto
 ): Promise<string> => {
@@ -182,7 +231,6 @@ export const getSalaryStructure = async (
     return response.data;
 };
 
-// Get all salary structures for a company (optional)
 export const getSalaryStructuresByCompany = async (
     companyId: string
 ): Promise<SalaryStructureResponseDto[]> => {
@@ -221,25 +269,33 @@ export interface EmployeePayrollResponseDto {
     payRollId: string;
     employeeID: string;
     employeeName: string;
-    employeeEmail: string;
-    designation: string;
     empCode: string;
+    designation: string;
+    employeeEmail: string;
     employeeContactNumber: string;
     companyId: string;
     companyName: string;
     month: string;
     year: number;
-    baseSalary: number;
-    grossSalary: number;
+
+    basicSalary: number;
     hra: number;
-    da: number;
+    conveyance: number;
+    medicalAllowance: number;
     specialAllowance: number;
-    pfAmount: number;
+    bonusAmount: number;
+    grossSalary: number;
+
+    pfEmployeeAmount: number;
+    pfEmployerAmount: number;
+    esiEmployeeAmount: number;
+    esiEmployerAmount: number;
     professionalTaxAmount: number;
     incomeTaxAmount: number;
+    totalDeductions: number;
+
     netSalary: number;
     generatedAt: string;
-
 }
 
 export const getPayrollsByCompany = async (companyId: string): Promise<EmployeePayrollResponseDto[]> => {
@@ -261,10 +317,71 @@ export interface CompanyDetails {
     contactNumber: string;
     address: string;
     registrationNumber: string;
-    // Assuming the company fetch response has these fields
 };
 
 export const getCompanyDetails = async (companyId: string): Promise<CompanyDetails> => {
     const response = await api.get<CompanyDetails>(`/companies/${companyId}`);
     return response.data;
 }
+
+
+
+
+export const deactivateEmployee = async (employeeId: string): Promise<string> => {
+    const response = await api.patch<string>(`/employees/${employeeId}/deactivate`);
+    return response.data;
+};
+
+export const sendSetPasswordEmail = async (employeeId: string): Promise<string> => {
+    const response = await api.post<string>(`/send-passwordreset`, null, {
+        params: { employeeId }
+    });
+    return response.data;
+};
+
+export interface EmployeeResponseDto {
+    employeeId: string;
+    name: string;
+    email: string;
+    contactNumber: string;
+    department: string;
+    empcode: string;
+    gender: 'MALE' | 'FEMALE' | 'OTHER';
+    birthdate?: string;
+    designation: string;
+    joiningDate: string;
+    companyId: string;
+    role: 'ADMIN' | 'EMPLOYEE';
+    employeeStatus: 'Active' | 'Inactive';
+}
+
+export const getEmployeeById = async (employeeId: string) => {
+    const response = await api.get<EmployeeResponseDto>(`/employees/${employeeId}`);
+    return response.data;
+};
+
+
+export interface EmployeeUpdateRequestDto {
+    name: string;
+    email: string;
+    contactNumber?: string;
+    department?: string;
+    birthdate?: string;
+    designation?: string;
+    gender?: 'MALE' | 'FEMALE' | 'OTHER';
+    joiningDate?: string;
+    companyId?: string;
+}
+export const updateEmployee = async (employeeId: string, payload: EmployeeUpdateRequestDto): Promise<string> => {
+    const response = await api.put<string>(`/employees/${employeeId}`, payload);
+    return response.data;
+};
+
+
+export const downloadPayrollPdf = async (payrollId: string): Promise<Blob> => {
+    const response = await api.get(`/payrolls/download/${payrollId}`, {
+        responseType: "blob"
+    });
+
+    return response.data;
+};

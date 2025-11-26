@@ -2,47 +2,51 @@ import React, { useEffect, useState } from 'react';
 import { Select } from '../../components/ui/Select';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
-
+import toast from 'react-hot-toast';
 import {
   createSalaryStructure,
   updateSalaryStructure,
   getEmployeesByCompany,
   getSalaryStructure,
-  PayrollConfiguration,
   getPayrollConfiguration,
+  PayrollConfigurationResponseDto,
+  Employee
 } from '@/src/services/apiService';
 
-import toast from 'react-hot-toast';
+
 
 export const SalaryList: React.FC = () => {
-  const [employees, setEmployees] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmpId, setSelectedEmpId] = useState('');
   const [basicSalary, setBasicSalary] = useState(0);
-  const [allowance, setAllowance] = useState(0);
-  const [salaryExists, setSalaryExists] = useState(false);
+  const [specialAllowance, setSpecialAllowance] = useState(0);
+  const [bonusAmount, setBonusAmount] = useState(0);
 
-  const [payrollConfig, setPayrollConfig] = useState<PayrollConfiguration | null>(null);
+  const [config, setConfig] = useState<PayrollConfigurationResponseDto | null>(null);
+  const [salaryExists, setSalaryExists] = useState(false);
+  const [selectedEmployeeGender, setSelectedEmployeeGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const companyId = localStorage.getItem('companyId');
 
   useEffect(() => {
     document.title = "Salary Structure - PayMaster";
 
-    const loadData = async () => {
-      try {
-        const companyId = localStorage.getItem('companyId');
-        if (!companyId) throw new Error("Company ID missing");
+    const loadInitialData = async () => {
+      if (!companyId) {
+        setError("Company not found.");
+        setLoading(false);
+        return;
+      }
 
+      try {
         const empData = await getEmployeesByCompany(companyId);
         setEmployees(empData);
 
-        const config = await getPayrollConfiguration(companyId);
-        if (config === null) {
-          toast.error("Payroll configuration not set. Please set it up first.");
-        }
-        setPayrollConfig(config);
+        const payrollConfig = await getPayrollConfiguration(companyId);
+        setConfig({ ...payrollConfig, isActive: true });
 
       } catch (err: any) {
         setError(err.message || "Failed to load data");
@@ -51,154 +55,175 @@ export const SalaryList: React.FC = () => {
       }
     };
 
-    loadData();
+    loadInitialData();
   }, []);
 
-
   useEffect(() => {
-    fetchSalaryStructure();
-  }, [selectedEmpId]);
+    if (!selectedEmpId || !companyId) return;
 
-  const fetchSalaryStructure = async () => {
-    if (!selectedEmpId) return;
+    const fetchSalary = async () => {
+      try {
+        const data = await getSalaryStructure(selectedEmpId, companyId);
+        setBasicSalary(data.basicSalary || 0);
+        setSpecialAllowance(data.specialAllowance || 0);
+        setBonusAmount(data.bonusAmount || 0);
+        setSalaryExists(true);
+      } catch {
+        setBasicSalary(0);
+        setSpecialAllowance(0);
+        setBonusAmount(0);
+        setSalaryExists(false);
+      }
+    };
 
-    try {
-      const companyId = localStorage.getItem("companyId");
-      if (!companyId) throw new Error("Company ID missing");
-
-      const data = await getSalaryStructure(selectedEmpId, companyId);
-
-      setBasicSalary(data.basicSalary);
-      setAllowance(data.specialAllowance);
-      setSalaryExists(true);
-
-      toast.success(`Loaded salary structure for ${data.employeeName}`);
-    } catch (err) {
-      setBasicSalary(0);
-      setAllowance(0);
-      setSalaryExists(false);
+    const selectedEmp = employees.find(e => e.employeeId === selectedEmpId);
+    if (selectedEmp) {
+      setSelectedEmployeeGender(selectedEmp.gender || 'MALE');
     }
+
+    fetchSalary();
+  }, [selectedEmpId, companyId, employees]);
+
+  if (loading) return <div className="text-center py-5">Loading...</div>;
+  if (error) return <div className="alert alert-danger text-center">{error}</div>;
+  if (!config) return <div className="alert alert-warning text-center">Payroll configuration missing.</div>;
+
+  const hra = config.hraApplicable ? (basicSalary * (config.hraPercentage || 0)) / 100 : 0;
+  const conveyance = config.conveyanceApplicable ? config.conveyanceAmount || 0 : 0;
+  const medical = config.medicalApplicable ? config.medicalAllowanceAmount || 0 : 0;
+
+  const gross = basicSalary + hra + conveyance + medical + specialAllowance + bonusAmount;
+
+
+  const calculatePT = (gross: number, gender: string, month: number = 2) => {
+    if (gross <= 0) return 0;
+
+    const isFemale = gender === 'FEMALE';
+    const isFeb = month === 2;
+    let pt = 0;
+
+    if (isFemale) {
+      pt = gross > 25000 ? 200 : 0;
+    }
+    else {
+      if (gross <= 7500) pt = 0;
+      else if (gross <= 10000) pt = 175;
+      else pt = 200;
+    }
+    if (isFeb && pt > 175) pt = 300;
+    return pt;
   };
 
+  const currentMonth = new Date().getMonth() + 1;
+  const professionalTax = calculatePT(gross, selectedEmployeeGender, currentMonth === 2 ? 2 : 1);
 
+  const pfEmployee = config.pfApplicable ? (basicSalary * (config.pfEmployeePercentage || 0)) / 100 : 0;
+  const esiEmployee = config.esiApplicable && gross <= 21000
+    ? (gross * (config.esiEmployeePercentage)) / 100
+    : 0;
 
-  const hra = payrollConfig ? (basicSalary * payrollConfig.hraPercentage) / 100 : 0;
-  const da = payrollConfig ? (basicSalary * payrollConfig.daPercentage) / 100 : 0;
-  const pf = payrollConfig ? (basicSalary * payrollConfig.pfPercentage) / 100 : 0;
-  console.log(hra, da, pf);
-  const gross = basicSalary + hra + da + allowance;
-
+  const totalDeductions = pfEmployee + esiEmployee + professionalTax;
+  const netSalary = gross - totalDeductions;
 
   const handleSave = async () => {
-    try {
-      const companyId = localStorage.getItem("companyId");
+    if (!selectedEmpId) {
+      toast.error("Please select an employee");
+      return;
+    }
 
+    try {
       const payload = {
         employeeId: selectedEmpId,
-        companyId,
+        companyId: companyId!,
         basicSalary,
-        grossSalary: gross,
-        specialAllowance: allowance
+        specialAllowance,
+        bonusAmount: bonusAmount || 0
       };
 
-      await createSalaryStructure(payload);
-      toast.success("Salary structure created");
+      if (salaryExists) {
+        await updateSalaryStructure(payload);
+        toast.success("Salary structure updated!");
+      } else {
+        await createSalaryStructure(payload);
+        toast.success("Salary structure created!");
+      }
       setSalaryExists(true);
     } catch (err: any) {
-      toast.error(err.message || "Failed to save");
+      toast.error(err.message || "Save failed");
     }
   };
-
-  const handleUpdate = async () => {
-    try {
-      const companyId = localStorage.getItem("companyId");
-
-      const payload = {
-        employeeId: selectedEmpId,
-        companyId,
-        basicSalary,
-        specialAllowance: allowance
-      };
-
-      await updateSalaryStructure(payload);
-      toast.success("Salary structure updated");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update");
-    }
-  };
-
-  if (loading) return <p className="text-center mt-10">Loading...</p>;
-  if (error) return <p className="text-center mt-10 text-red-500">{error}</p>;
-  if (!payrollConfig) return <p className="text-center mt-10">Payroll configuration missing!</p>;
 
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-8">
-      <h2 className="text-xl font-bold text-gray-800 mb-6">Manage Salary Structure</h2>
+    <div className="container py-4">
+      <div className="card shadow p-4">
+        <h2 className="fw-bold mb-4">Employee Salary Structure</h2>
 
-      <Select
-        label="Employee"
-        options={employees.map((e) => ({ label: e.name, value: e.employeeId }))}
-        value={selectedEmpId}
-        onChange={(e) => setSelectedEmpId(e.target.value)}
-        className="mb-8"
-      />
+        <Select
+          label="Select Employee"
+          className="mb-4"
+          options={employees.map(e => ({
+            label: `${e.name} (${e.designation}) - ${e.gender}`,
+            value: e.employeeId
+          }))}
+          value={selectedEmpId}
+          onChange={(e) => setSelectedEmpId(e.target.value)}
+        />
 
-      {selectedEmpId && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {selectedEmpId && (
+          <div className="row g-4">
+            {/* LEFT FORM */}
+            <div className="col-lg-6">
+              <div className="border rounded p-4 bg-light">
+                <h5 className="mb-3">Enter Salary Details</h5>
 
-          {/* LEFT SIDE FORM */}
-          <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-            <Input
-              label="Basic Salary"
-              type="number"
-              value={basicSalary}
-              onChange={(e) => setBasicSalary(parseFloat(e.target.value) || 0)}
-            />
-            <Input
-              label="Special Allowance"
-              type="number"
-              value={allowance}
-              onChange={(e) => setAllowance(parseFloat(e.target.value) || 0)}
-            />
+                <Input label="Basic Salary (₹)" type="text" value={basicSalary} onChange={(e) => setBasicSalary(parseFloat(e.target.value) || 0)} />
+                <Input label="Special Allowance (₹)" type="text" value={specialAllowance} onChange={(e) => setSpecialAllowance(parseFloat(e.target.value) || 0)} />
+                <Input label="Bonus Amount (₹)" type="text" value={bonusAmount} onChange={(e) => setBonusAmount(parseFloat(e.target.value) || 0)} />
 
-            {!salaryExists ? (
-              <Button onClick={handleSave} className="w-full mt-4">Save Structure</Button>
-            ) : (
-              <Button onClick={handleUpdate} className="w-full mt-4">Update Structure</Button>
-            )}
-          </div>
-
-          {/* RIGHT SIDE SUMMARY */}
-          <div className="space-y-4 p-4 border rounded-lg bg-blue-50">
-            <SummaryRow label="Basic Salary" value={basicSalary} />
-
-            <SummaryRow label={`HRA (${payrollConfig.hraPercentage}%)`} value={hra} />
-            <SummaryRow label={`DA (${payrollConfig.daPercentage}%)`} value={da} />
-
-            <SummaryRow label="Special Allowance" value={allowance} />
-
-            <div className="border-t border-blue-200 pt-2 font-bold flex justify-between text-blue-900">
-              <span>Gross Salary:</span>
-              <span>{gross.toFixed(2)}</span>
+                <div className="mt-4">
+                  <Button className="w-100" onClick={handleSave}>
+                    {salaryExists ? 'Update Salary Structure' : 'Create Salary Structure'}
+                  </Button>
+                </div>
+              </div>
             </div>
 
-            <div className="border-t border-blue-200 pt-2 mt-2 flex justify-between text-red-600">
-              <span>PF Deduction ({payrollConfig.pfPercentage}%):</span>
-              <span>-{pf.toFixed(2)}</span>
+            {/* RIGHT PREVIEW */}
+            <div className="col-lg-6">
+              <div className="border rounded p-4 bg-primary bg-opacity-10">
+                <h5 className="mb-3 text-primary">Salary Preview (Current Month)</h5>
+
+                <SummaryRow label="Basic Salary" value={basicSalary} />
+                {config.hraApplicable && <SummaryRow label={`HRA (${config.hraPercentage}%)`} value={hra} />}
+                {config.conveyanceApplicable && <SummaryRow label="Conveyance" value={conveyance} />}
+                {config.medicalApplicable && <SummaryRow label="Medical Allowance" value={medical} />}
+                <SummaryRow label="Special Allowance" value={specialAllowance} />
+                <SummaryRow label="Bonus" value={bonusAmount} />
+
+                <hr />
+                <SummaryRow label="Gross Salary" value={gross} bold />
+
+                <hr />
+                {pfEmployee > 0 && <SummaryRow label="PF (Employee)" value={-pfEmployee} />}
+                {esiEmployee > 0 && <SummaryRow label="ESI (Employee)" value={-esiEmployee} />}
+                <SummaryRow label="Professional Tax" value={-professionalTax} />
+
+                <hr />
+                <SummaryRow label="Net Take-Home" value={netSalary} bold large text="text-success" />
+              </div>
             </div>
-
           </div>
-
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
-
-const SummaryRow = ({ label, value }: { label: string; value: number }) => (
-  <div className="flex justify-between">
-    <span>{label}:</span>
-    <span>{value.toFixed(2)}</span>
+const SummaryRow = ({ label, value, bold, large, text }: any) => (
+  <div className="d-flex justify-content-between mb-2">
+    <span className={bold ? 'fw-bold' : ''}>{label}</span>
+    <span className={`${bold ? 'fw-bold' : ''} ${large ? 'fs-4' : ''} ${text || ''}`}>
+      ₹{Math.round(value).toLocaleString('en-IN')}
+    </span>
   </div>
 );

@@ -1,47 +1,65 @@
+// Sidebar.tsx
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 
-// Define all links with role access
 const allLinks = [
   { name: 'Dashboard', path: '/dashboard', roles: ['admin', 'hr', 'manager', 'employee'] },
-  { name: 'Employees', path: '/employees', roles: ['admin', 'hr'] },
+  { name: 'Payroll Configuration', path: '/settings/company', roles: ['admin', 'hr'] },
+  { name: 'Employees', path: '/employees', roles: ['admin', 'hr', 'employee'] },
   { name: 'Salary Structure', path: '/salary', roles: ['admin', 'hr'] },
   { name: 'Payroll', path: '/payroll', roles: ['admin', 'hr', 'manager', 'employee'] },
-  { name: 'Company Settings', path: '/settings/company', roles: ['admin', 'hr'] },
 ];
 
-export const Sidebar: React.FC = () => {
-  // Get the user role from localStorage
-  const role = localStorage.getItem('userRole'); // default to 'employee' if not set
-  const lowerRole = role.toLowerCase();
-  // Filter links based on the role
-  const links = allLinks.filter(link => link.roles.includes(lowerRole));
+interface SidebarProps {
+  showHeader?: boolean;
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({ showHeader = true }) => {
+  const navigate = useNavigate();
+  const role = (localStorage.getItem('userRole') || 'employee').toLowerCase();
+  const links = allLinks.filter(link => link.roles.includes(role));
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
 
   return (
-    <aside
-      className="bg-dark text-light vh-100 d-flex flex-column"
-      style={{ width: '250px', minWidth: '250px' }}
-    >
-      {/* Menu Header */}
-      <div className="d-flex align-items-center justify-content-center border-bottom" style={{ height: '80px' }}>
-        <span className="text-uppercase fw-bold small text-secondary">Menu</span>
-      </div>
+    // FIX: Added height: '100vh' to ensure the component takes full vertical space.
+    <div className="d-flex flex-column flex-shrink-0 p-3 bg-dark text-white" style={{ width: '250px', height: '100vh' }}>
+      {showHeader && (
+        <div className="border-bottom border-secondary pb-3 mb-3 text-center">
+          <h6 className="text-uppercase fw-bold text-light mb-0">MENU</h6>
+        </div>
+      )}
 
-      {/* Navigation Links */}
-      <nav className="nav flex-column p-2 flex-grow-1">
-        {links.map((link) => (
-          <NavLink
-            key={link.path}
-            to={link.path}
-            className={({ isActive }) =>
-              `nav-link rounded ${isActive ? 'active bg-primary text-white' : 'text-light'}`
-            }
-            style={{ height: '60px', lineHeight: '60px' }}
-          >
-            {link.name}
-          </NavLink>
+      {/* The mb-auto class here pushes the element below it (the logout div) to the bottom */}
+      <ul className="nav nav-pills flex-column mb-auto ">
+        {links.map(link => (
+          <li className="nav-item mb-3" key={link.path}>
+            <NavLink
+              to={link.path}
+              end
+              className={({ isActive }) =>
+                `nav-link text-white ${isActive ? 'active bg-primary' : ''}`
+              }
+            >
+              {link.name}
+            </NavLink>
+          </li>
         ))}
-      </nav>
-    </aside>
+      </ul>
+
+      {/* This section is naturally pushed to the bottom by the mb-auto on the ul */}
+      <div className="border-top border-secondary pt-3 ">
+        <button
+          onClick={handleLogout}
+          className="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2"
+        >
+          <i className="bi bi-box-arrow-right"></i>
+          Logout
+        </button>
+      </div>
+    </div>
   );
 };

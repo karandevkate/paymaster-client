@@ -1,0 +1,8 @@
+/* layout.css */
+
+/* Only apply margin-left when sidebar is visible (lg and up) */
+@media (min-width: 992px) {
+    .content-shift-lg {
+        margin-left: 250px !important;
+    }
+}
