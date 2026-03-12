@@ -21,6 +21,8 @@ export const SalaryList: React.FC = () => {
   const [basicSalary, setBasicSalary] = useState(0);
   const [specialAllowance, setSpecialAllowance] = useState(0);
   const [bonusAmount, setBonusAmount] = useState(0);
+  const [isPfApplicable, setIsPfApplicable] = useState(true);
+  const [isEsicApplicable, setIsEsicApplicable] = useState(false);
 
   const [config, setConfig] = useState<PayrollConfigurationResponseDto | null>(null);
   const [salaryExists, setSalaryExists] = useState(false);
@@ -67,11 +69,15 @@ export const SalaryList: React.FC = () => {
         setBasicSalary(data.basicSalary || 0);
         setSpecialAllowance(data.specialAllowance || 0);
         setBonusAmount(data.bonusAmount || 0);
+        setIsPfApplicable(data.isPfApplicable);
+        setIsEsicApplicable(data.isEsicApplicable);
         setSalaryExists(true);
       } catch {
         setBasicSalary(0);
         setSpecialAllowance(0);
         setBonusAmount(0);
+        setIsPfApplicable(config.isPfApplicable ?? true);
+        setIsEsicApplicable(config.isEsicApplicable ?? false);
         setSalaryExists(false);
       }
     };
@@ -89,7 +95,7 @@ export const SalaryList: React.FC = () => {
   if (!config) return <div className="alert alert-warning text-center">Payroll configuration missing.</div>;
 
   const hra = config.hraApplicable ? (basicSalary * (config.hraPercentage || 0)) / 100 : 0;
-  const conveyance = config.conveyanceApplicable ? config.conveyanceAmount || 0 : 0;
+  const conveyance = config.conveyanceApplicable ? (basicSalary * (config.conveyancePercentage || 0)) / 100 : 0;
   const medical = config.medicalApplicable ? config.medicalAllowanceAmount || 0 : 0;
 
   const gross = basicSalary + hra + conveyance + medical + specialAllowance + bonusAmount;
@@ -117,12 +123,15 @@ export const SalaryList: React.FC = () => {
   const currentMonth = new Date().getMonth() + 1;
   const professionalTax = calculatePT(gross, selectedEmployeeGender, currentMonth === 2 ? 2 : 1);
 
-  const pfEmployee = config.pfApplicable ? (basicSalary * (config.pfEmployeePercentage || 0)) / 100 : 0;
-  const esiEmployee = config.esiApplicable && gross <= 21000
-    ? (gross * (config.esiEmployeePercentage)) / 100
-    : 0;
+  const pfEmployee = isPfApplicable ? Math.round((basicSalary * (config.pfEmployeePercentage || 0)) / 100) : 0;
+  
+  const esiEmpRate = 0.75;
+  const esiEmprRate = 3.25;
+  const esiEmployee = isEsicApplicable ? Math.round((gross * esiEmpRate) / 100) : 0;
+  const esiEmployer = isEsicApplicable ? Math.round((gross * esiEmprRate) / 100) : 0;
+  const totalEsicDeduction = esiEmployee + esiEmployer;
 
-  const totalDeductions = pfEmployee + esiEmployee + professionalTax;
+  const totalDeductions = pfEmployee + totalEsicDeduction + professionalTax;
   const netSalary = gross - totalDeductions;
 
   const handleSave = async () => {
@@ -137,7 +146,9 @@ export const SalaryList: React.FC = () => {
         companyId: companyId!,
         basicSalary,
         specialAllowance,
-        bonusAmount: bonusAmount || 0
+        bonusAmount: bonusAmount || 0,
+        isPfApplicable,
+        isEsicApplicable
       };
 
       if (salaryExists) {
@@ -180,6 +191,33 @@ export const SalaryList: React.FC = () => {
                 <Input label="Special Allowance (₹)" type="text" value={specialAllowance} onChange={(e) => setSpecialAllowance(parseFloat(e.target.value) || 0)} />
                 <Input label="Bonus Amount (₹)" type="text" value={bonusAmount} onChange={(e) => setBonusAmount(parseFloat(e.target.value) || 0)} />
 
+                <div className="mt-3">
+                  <div className="form-check">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="pfApplicable"
+                      checked={isPfApplicable}
+                      onChange={(e) => setIsPfApplicable(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="pfApplicable">
+                      PF Applicable
+                    </label>
+                  </div>
+                  <div className="form-check mt-2">
+                    <input
+                      className="form-check-input"
+                      type="checkbox"
+                      id="esicApplicable"
+                      checked={isEsicApplicable}
+                      onChange={(e) => setIsEsicApplicable(e.target.checked)}
+                    />
+                    <label className="form-check-label" htmlFor="esicApplicable">
+                      ESIC Applicable
+                    </label>
+                  </div>
+                </div>
+
                 <div className="mt-4">
                   <Button className="w-100" onClick={handleSave}>
                     {salaryExists ? 'Update Salary Structure' : 'Create Salary Structure'}
@@ -195,7 +233,7 @@ export const SalaryList: React.FC = () => {
 
                 <SummaryRow label="Basic Salary" value={basicSalary} />
                 {config.hraApplicable && <SummaryRow label={`HRA (${config.hraPercentage}%)`} value={hra} />}
-                {config.conveyanceApplicable && <SummaryRow label="Conveyance" value={conveyance} />}
+                {config.conveyanceApplicable && <SummaryRow label={`Conveyance (${config.conveyancePercentage}%)`} value={conveyance} />}
                 {config.medicalApplicable && <SummaryRow label="Medical Allowance" value={medical} />}
                 <SummaryRow label="Special Allowance" value={specialAllowance} />
                 <SummaryRow label="Bonus" value={bonusAmount} />
@@ -204,8 +242,14 @@ export const SalaryList: React.FC = () => {
                 <SummaryRow label="Gross Salary" value={gross} bold />
 
                 <hr />
-                {pfEmployee > 0 && <SummaryRow label="PF (Employee)" value={-pfEmployee} />}
-                {esiEmployee > 0 && <SummaryRow label="ESI (Employee)" value={-esiEmployee} />}
+                {isPfApplicable && pfEmployee > 0 && <SummaryRow label="PF (Employee)" value={-pfEmployee} />}
+                {isEsicApplicable && (
+                  <>
+                    <SummaryRow label="ESIC (Employee 0.75%)" value={-esiEmployee} />
+                    <SummaryRow label="ESIC (Employer 3.25%)" value={-esiEmployer} />
+                    <SummaryRow label="Total ESIC Deduction (4%)" value={-totalEsicDeduction} bold />
+                  </>
+                )}
                 <SummaryRow label="Professional Tax" value={-professionalTax} />
 
                 <hr />

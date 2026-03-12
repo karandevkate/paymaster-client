@@ -21,11 +21,11 @@ export const CompanySettingsPage: React.FC = () => {
     medicalApplicable: false,
 
     hraPercentage: 0,
-    conveyanceAmount: 0,
+    conveyancePercentage: 0,
     medicalAllowanceAmount: 0,
 
-    pfApplicable: false,
-    esiApplicable: false,
+    isPfApplicable: false,
+    isEsicApplicable: false,
 
     pfEmployeePercentage: 0,
     pfEmployerPercentage: 0,
@@ -67,11 +67,11 @@ export const CompanySettingsPage: React.FC = () => {
             medicalApplicable: data.medicalApplicable ?? false,
 
             hraPercentage: data.hraPercentage ?? 0,
-            conveyanceAmount: data.conveyanceAmount ?? 0,
+            conveyancePercentage: data.conveyancePercentage ?? 0,
             medicalAllowanceAmount: data.medicalAllowanceAmount ?? 0,
 
-            pfApplicable: data.pfApplicable ?? false,
-            esiApplicable: data.esiApplicable ?? false,
+            isPfApplicable: data.isPfApplicable ?? false,
+            isEsicApplicable: data.isEsicApplicable ?? false,
 
             pfEmployeePercentage: data.pfEmployeePercentage ?? 0,
             pfEmployerPercentage: data.pfEmployerPercentage ?? 0,
@@ -161,7 +161,7 @@ export const CompanySettingsPage: React.FC = () => {
                   <label className="form-check-label">Conveyance Applicable</label>
                 </div>
                 {settings.conveyanceApplicable && (
-                  <Input label="Conveyance Amount (₹)" name="conveyanceAmount" type="text" value={settings.conveyanceAmount} onChange={handleChange} />
+                  <Input label="Conveyance %" name="conveyancePercentage" type="text" value={settings.conveyancePercentage} onChange={handleChange} />
                 )}
 
                 <div className="form-check mb-3 mt-4">
@@ -174,16 +174,16 @@ export const CompanySettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Right: Deductions */}
+
             <div className="col-lg-6">
               <div className="card h-100 p-4">
                 <h5 className="border-bottom pb-2 mb-3">Statutory Deductions</h5>
 
                 <div className="form-check mb-3">
-                  <input type="checkbox" className="form-check-input" name="pfApplicable" checked={settings.pfApplicable} onChange={handleChange} />
+                  <input type="checkbox" className="form-check-input" name="isPfApplicable" checked={settings.isPfApplicable} onChange={handleChange} />
                   <label className="form-check-label">PF Applicable</label>
                 </div>
-                {settings.pfApplicable && (
+                {settings.isPfApplicable && (
                   <>
                     <Input label="PF Employee %" name="pfEmployeePercentage" type="text" step="0.01" value={settings.pfEmployeePercentage} onChange={handleChange} />
                     <Input label="PF Employer %" name="pfEmployerPercentage" type="text" step="0.01" value={settings.pfEmployerPercentage} onChange={handleChange} />
@@ -191,14 +191,14 @@ export const CompanySettingsPage: React.FC = () => {
                 )}
 
                 <div className="form-check mb-3 mt-4">
-                  <input type="checkbox" className="form-check-input" name="esiApplicable" checked={settings.esiApplicable} onChange={handleChange} />
-                  <label className="form-check-label">ESI Applicable</label>
+                  <input type="checkbox" className="form-check-input" name="isEsicApplicable" checked={settings.isEsicApplicable} onChange={handleChange} />
+                  <label className="form-check-label">ESIC Applicable</label>
                 </div>
-                {settings.esiApplicable && (
-                  <>
-                    <Input label="ESI Employee %" name="esiEmployeePercentage" type="text" step="0.01" value={settings.esiEmployeePercentage} onChange={handleChange} />
-                    <Input label="ESI Employer %" name="esiEmployerPercentage" type="text" step="0.01" value={settings.esiEmployerPercentage} onChange={handleChange} />
-                  </>
+                {settings.isEsicApplicable && (
+                  <div className="alert alert-warning py-2 small">
+                    ESIC calculation: <strong>0.75%</strong> (Employee) + <strong>3.25%</strong> (Employer). 
+                    Total 4% will be deducted from employee salary.
+                  </div>
                 )}
 
                 <div className="alert alert-info mt-4">

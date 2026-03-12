@@ -115,14 +115,14 @@ export interface PayrollConfigurationRequestDto {
     specialAllowanceApplicable?: boolean;
     bonusApplicable?: boolean;
 
-    hraPercentage?: number;
-    conveyanceAmount?: number;
-    medicalAllowanceAmount?: number;
+    hraPercentage: number;
+    conveyancePercentage: number;
+    medicalAllowanceAmount: number;
     specialAllowancePercentage?: number;
     bonusPercentage?: number;
 
-    pfApplicable?: boolean;
-    esiApplicable?: boolean;
+    isPfApplicable?: boolean;
+    isEsicApplicable?: boolean;
     pfEmployeePercentage?: number;
     pfEmployerPercentage?: number;
     esiEmployeePercentage?: number;
@@ -179,6 +179,9 @@ export interface SalaryStructureRequestDto {
     basicSalary: number;
     specialAllowance: number;
     bonusAmount?: number;
+
+    isPfApplicable?: boolean;
+    isEsicApplicable?: boolean;
 }
 
 export interface SalaryStructureResponseDto {
@@ -194,13 +197,17 @@ export interface SalaryStructureResponseDto {
     specialAllowance: number;
     bonusAmount: number;
 
+    isPfApplicable: boolean;
+    isEsicApplicable: boolean;
+
     grossSalary: number;
     ctc: number;
 
     pfEmployee: number;
     pfEmployer: number;
-    esiEmployee: number;
-    esiEmployer: number;
+    employeeEsicContribution: number;
+    employerEsicContribution: number;
+    totalEsicDeduction: number;
     professionalTax: number;
     incomeTax: number;
 
@@ -288,8 +295,9 @@ export interface EmployeePayrollResponseDto {
 
     pfEmployeeAmount: number;
     pfEmployerAmount: number;
-    esiEmployeeAmount: number;
-    esiEmployerAmount: number;
+    employeeEsicContribution: number;
+    employerEsicContribution: number;
+    totalEsicDeduction: number;
     professionalTaxAmount: number;
     incomeTaxAmount: number;
     totalDeductions: number;
