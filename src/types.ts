@@ -1,77 +1,147 @@
 export interface User {
-  id: string;
+  userId: string;
+  username: string;
   email: string;
-  name: string;
   companyId: string;
-  role: 'ADMIN' | 'EMPLOYEE';
+  userRole: 'ADMIN' | 'EMPLOYEE';
+  token: string;
 }
 
 export interface Company {
-  id: string;
+  companyId: string;
   name: string;
   email: string;
+  contactNumber: string;
   registrationNumber: string;
   address: string;
 }
 
 export interface CompanySettings {
-  id?: string;
+  payrollConfigurationId?: string;
   companyId: string;
+  
+  // Allowance Applicability
+  hraApplicable: boolean;
+  conveyanceApplicable: boolean;
+  medicalApplicable: boolean;
+  bonusApplicable: boolean;
+
+  // Allowance Values
   hraPercentage: number;
-  daPercentage: number;
-  pfPercentage: number;
+  conveyancePercentage: number;
+  medicalAllowanceAmount: number;
+  bonusPercentage: number;
+
+  // PF / ESI
+  isPfApplicable: boolean;
+  isEsicApplicable: boolean;
+  pfEmployeePercentage: number;
+  pfEmployerPercentage: number;
+  esiEmployeePercentage: number;
+  esiEmployerPercentage: number;
+  professionalTax: number;
+
+  // Tax Slabs
   taxSlab1Limit: number;
-  taxSlab1Percentage: number;
+  taxSlab1Rate: number;
   taxSlab2Limit: number;
-  taxSlab2Percentage: number;
-  taxSlab3Percentage: number;
+  taxSlab2Rate: number;
+  taxSlab3Limit: number;
+  taxSlab3Rate: number;
+  
+  isActive: boolean;
+}
+
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+  OTHER = 'OTHER'
 }
 
 export enum EmployeeStatus {
-  ACTIVE = 'Active',
-  INACTIVE = 'Inactive',
-  ON_LEAVE = 'On Leave'
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  RESIGNED = 'RESIGNED',
+  TERMINATED = 'TERMINATED',
+  ON_LEAVE = 'ON_LEAVE'
 }
 
 export interface Employee {
-  id: string;
+  employeeId: string;
   companyId: string;
-  empCode: string;
+  empcode: string;
   name: string;
   email: string;
+  contactNumber: string;
   department: string;
   designation: string;
+  gender: Gender;
+  birthdate: string;
   joiningDate: string;
-  status: EmployeeStatus;
+  employeeStatus: EmployeeStatus;
+  pan: string;
+  bankName: string;
+  accountNumber: string;
+  esicNumber: string;
+  uanNumber: string;
+  location: string;
+  role: 'ADMIN' | 'EMPLOYEE';
 }
 
 export interface SalaryStructure {
-  id: string;
+  salaryStructureId: string;
   employeeId: string;
+  employeeName: string;
+  companyId: string;
+
+  // EARNINGS
   basicSalary: number;
+  hra: number;
+  conveyance: number;
+  medicalAllowance: number;
   specialAllowance: number;
-  // Calculated fields often returned by backend, but we might calculate on frontend for form
-  grossSalary?: number; 
+  bonusAmount: number;
+
+  isPfApplicable: boolean;
+  isEsicApplicable: boolean;
+
+  // Critical Payslip Fields
+  grossEarnings: number;
+  grossMonthlyCtcBase: number;
+
+  // STATUTORY CONTRIBUTIONS
+  pfEmployee: number;
+  pfEmployer: number;
+  employeeEsicContribution: number;
+  employerEsicContribution: number;
+  totalEsicDeduction: number;
+  professionalTax: number;
+  incomeTax: number;
+  totalDeductions: number;
+
+  // FINAL
+  netSalary: number;
+  ctc: number;
 }
 
 export enum LeaveType {
-  CL = 'Casual Leave',
-  SL = 'Sick Leave',
-  EL = 'Earned Leave',
-  LOP = 'Loss of Pay'
+  CASUAL_LEAVE = 'CASUAL_LEAVE',
+  SICK_LEAVE = 'SICK_LEAVE',
+  EARNED_LEAVE = 'EARNED_LEAVE',
+  LOP = 'LOP'
 }
 
 export enum LeaveStatus {
-  PENDING = 'Pending',
-  APPROVED = 'Approved',
-  REJECTED = 'Rejected'
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED'
 }
 
 export interface LeaveRequest {
   id: string;
   companyId: string;
   employeeId: string;
-  employeeName?: string; // Joined data
+  employeeName?: string;
   leaveType: LeaveType;
   leaveDate: string;
   status: LeaveStatus;
@@ -79,20 +149,40 @@ export interface LeaveRequest {
 }
 
 export interface PayrollRecord {
-  id: string;
+  payRollId: string;
   companyId: string;
-  employeeId: string;
+  companyName: string;
+  employeeID: string;
   employeeName: string;
-  monthYear: string; // YYYY-MM
-  basic: number;
+  empCode: string;
+  designation: string;
+  employeeEmail: string;
+  employeeContactNumber: string;
+  
+  month: string;
+  year: number;
+
+  // EARNINGS
+  basicSalary: number;
   hra: number;
-  da: number;
+  conveyance: number;
+  medicalAllowance: number;
   specialAllowance: number;
+  bonusAmount: number;
   grossSalary: number;
-  pfDeduction: number;
-  professionalTax: number;
-  incomeTax: number;
-  lopDeduction: number;
+
+  // DEDUCTIONS
+  pfEmployeeAmount: number;
+  pfEmployerAmount: number;
+  employeeEsicContribution: number;
+  employerEsicContribution: number;
+  totalEsicDeduction: number;
+  professionalTaxAmount: number;
+  incomeTaxAmount: number;
+  totalDeductions: number;
+
+  // FINAL
   netSalary: number;
+  daysPaid: number;
   generatedAt: string;
 }

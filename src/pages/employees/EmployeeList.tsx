@@ -2,16 +2,18 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
-  Employee,
   getEmployeesByCompany,
   deactivateEmployee,
   sendSetPasswordEmail,
 } from '@/src/services/apiService';
+import { Employee, EmployeeStatus } from '../../types';
 
 export const EmployeeList: React.FC = () => {
-  const userRole = localStorage.getItem('userRole') || '';
-  const loggedInUserId = localStorage.getItem('userId') || '';
-  const companyId = localStorage.getItem('companyId');
+  const userJson = localStorage.getItem('user');
+  const user = userJson ? JSON.parse(userJson) : null;
+  const userRole = user?.userRole || '';
+  const loggedInUserId = user?.userId || '';
+  const companyId = user?.companyId || '';
 
   const navigate = useNavigate();
 
@@ -20,9 +22,6 @@ export const EmployeeList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
-  // ────────────────────────────────────────────────
-  // Fetch Employees
-  // ────────────────────────────────────────────────
   const fetchEmployees = async () => {
     try {
       setLoading(true);
@@ -35,7 +34,6 @@ export const EmployeeList: React.FC = () => {
         setEmployees(data);
       }
 
-      toast.success('Employee list refreshed');
     } catch (err: any) {
       const msg = err.message || 'Failed to load employees';
       setError(msg);
@@ -45,13 +43,10 @@ export const EmployeeList: React.FC = () => {
     }
   };
 
-  // ────────────────────────────────────────────────
-  // Redirect employee to self profile
-  // ────────────────────────────────────────────────
   useEffect(() => {
     document.title = 'Employees - PayMaster';
 
-    if (userRole.toUpperCase() === 'EMPLOYEE' && loggedInUserId) {
+    if (userRole === 'EMPLOYEE' && loggedInUserId) {
       navigate(`/employees/${loggedInUserId}`);
       return;
     }
@@ -59,9 +54,6 @@ export const EmployeeList: React.FC = () => {
     fetchEmployees();
   }, []);
 
-  // ────────────────────────────────────────────────
-  // Actions
-  // ────────────────────────────────────────────────
   const handleDeactivate = async (employeeId: string) => {
     if (!window.confirm('Are you sure you want to deactivate this employee?')) return;
 
@@ -83,29 +75,19 @@ export const EmployeeList: React.FC = () => {
     }
   };
 
-  // ────────────────────────────────────────────────
-  // Filter
-  // ────────────────────────────────────────────────
   const filteredList = employees.filter(
     (emp) =>
       emp.name.toLowerCase().includes(search.toLowerCase()) ||
       emp.empcode.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ────────────────────────────────────────────────
-  // ROLE-BASED BUTTON LOGIC (Corrected)
-  // ────────────────────────────────────────────────
-
   const canEdit = (emp: Employee) =>
-    userRole === 'ADMIN' || userRole === 'HR' || emp.employeeId === loggedInUserId;
+    userRole === 'ADMIN' || emp.employeeId === loggedInUserId;
 
   const canToggleStatus = userRole === 'ADMIN';
 
-  const canSendPasswordEmail = userRole !== 'ADMIN';
+  const canSendPasswordEmail = userRole === 'ADMIN';
 
-  // ────────────────────────────────────────────────
-  // RENDER
-  // ────────────────────────────────────────────────
   return (
     <div className="container-fluid py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -125,12 +107,14 @@ export const EmployeeList: React.FC = () => {
           </button>
         </div>
 
-        <Link to="/employees/add">
-          <button className="btn btn-primary shadow-sm">
-            <i className="bi bi-plus-lg me-2" />
-            Add Employee
-          </button>
-        </Link>
+        {userRole === 'ADMIN' && (
+          <Link to="/employees/add">
+            <button className="btn btn-primary shadow-sm">
+              <i className="bi bi-plus-lg me-2" />
+              Add Employee
+            </button>
+          </Link>
+        )}
       </div>
 
       <div className="card border-0 shadow-sm">
@@ -212,10 +196,10 @@ export const EmployeeList: React.FC = () => {
 
                       <td className="text-center">
                         <span
-                          className={`badge rounded-pill px-2 py-1 text-white ${emp.employeeStatus === 'Active' ? 'bg-success' : 'bg-secondary'
+                          className={`badge rounded-pill px-2 py-1 text-white ${emp.employeeStatus === EmployeeStatus.ACTIVE ? 'bg-success' : 'bg-secondary'
                             }`}
                         >
-                          {emp.employeeStatus.toUpperCase()}
+                          {emp.employeeStatus}
                         </span>
                       </td>
 
@@ -230,7 +214,7 @@ export const EmployeeList: React.FC = () => {
                             <i className="bi bi-eye-fill" />
                           </Link>
 
-                          {/* Edit — fixed logic */}
+                          {/* Edit */}
                           {canEdit(emp) && (
                             <Link
                               to={`/employees/${emp.employeeId}/edit`}
@@ -241,16 +225,12 @@ export const EmployeeList: React.FC = () => {
                             </Link>
                           )}
 
-                          {/* Activate / Deactivate */}
-                          {canToggleStatus && (
+                          {/* Deactivate */}
+                          {canToggleStatus && emp.employeeStatus === EmployeeStatus.ACTIVE && (
                             <button
                               className="btn btn-sm btn-danger"
                               onClick={() => handleDeactivate(emp.employeeId)}
-                              title={
-                                emp.employeeStatus === 'Active'
-                                  ? 'Deactivate'
-                                  : 'Activate'
-                              }
+                              title="Deactivate"
                             >
                               <i className="bi bi-person-x-fill" />
                             </button>
@@ -275,7 +255,6 @@ export const EmployeeList: React.FC = () => {
             </table>
           </div>
 
-          {/* Summary */}
           {!loading && employees.length > 0 && (
             <div className="mt-3 text-muted small">
               Showing {filteredList.length} of {employees.length} employee

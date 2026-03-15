@@ -3,24 +3,26 @@ import { Button } from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 import {
   downloadPayrollPdf,
-  EmployeePayrollResponseDto,
   getPayrollsByCompany,
   getPayrollsByCompanyAndEmployee
 } from '@/src/services/apiService';
+import { PayrollRecord } from '../../types';
 
 export const PayrollList: React.FC = () => {
-  const [payrolls, setPayrolls] = useState<EmployeePayrollResponseDto[]>([]);
+  const [payrolls, setPayrolls] = useState<PayrollRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const role = localStorage.getItem('userRole');
-  const companyId = localStorage.getItem('companyId');
-  const employeeId = localStorage.getItem('userId');
+  const userJson = localStorage.getItem('user');
+  const user = userJson ? JSON.parse(userJson) : null;
+  const role = user?.userRole || '';
+  const companyId = user?.companyId || '';
+  const employeeId = user?.userId || '';
 
   useEffect(() => {
     document.title = "Payroll History - PayMaster";
     fetchPayrolls();
-  }, []);
+  }, [companyId]);
 
   const fetchPayrolls = async () => {
     if (!companyId) {
@@ -31,7 +33,7 @@ export const PayrollList: React.FC = () => {
 
     setLoading(true);
     try {
-      const data = (role === 'ADMIN' || role === 'HR')
+      const data = (role === 'ADMIN')
         ? await getPayrollsByCompany(companyId)
         : employeeId
           ? await getPayrollsByCompanyAndEmployee(companyId, employeeId)
@@ -49,12 +51,11 @@ export const PayrollList: React.FC = () => {
     const query = search.toLowerCase();
     return (
       p.employeeName.toLowerCase().includes(query) ||
-      p.empCode.toLowerCase().includes(query) ||
-      p.employeeID.toLowerCase().includes(query)
+      p.empCode.toLowerCase().includes(query)
     );
   });
 
-  const downloadSlip = async (payroll: EmployeePayrollResponseDto) => {
+  const downloadSlip = async (payroll: PayrollRecord) => {
     try {
       const blob = await downloadPayrollPdf(payroll.payRollId);
 
@@ -80,13 +81,13 @@ export const PayrollList: React.FC = () => {
 
   return (
     <div className="container py-4">
-      <div className="card shadow-sm p-4">
+      <div className="card shadow-sm p-4 border-0">
         {/* Header */}
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
           <h2 className="fw-bold mb-0">Payroll History</h2>
 
           <div className="d-flex gap-3 flex-wrap">
-            {(role === 'ADMIN' || role === 'HR') && (
+            {(role === 'ADMIN') && (
               <input
                 type="text"
                 placeholder="Search employee..."
@@ -144,20 +145,21 @@ export const PayrollList: React.FC = () => {
                     </td>
 
                     <td className="text-end text-monospace">
-                      ₹{p.grossSalary.toLocaleString('en-IN')}
+                      ₹{Math.round(p.grossSalary).toLocaleString('en-IN')}
                     </td>
 
                     <td className="text-end text-danger">
-                      -₹{p.totalDeductions.toLocaleString('en-IN')}
+                      -₹{Math.round(p.totalDeductions).toLocaleString('en-IN')}
                     </td>
 
                     <td className="text-end fw-bold text-success fs-5">
-                      ₹{p.netSalary.toLocaleString('en-IN')}
+                      ₹{Math.round(p.netSalary).toLocaleString('en-IN')}
                     </td>
 
                     <td className="text-center">
                       <Button size="sm" onClick={() => downloadSlip(p)}>
-                        Download Slip
+                        <i className="bi bi-download me-2"></i>
+                        Slip
                       </Button>
                     </td>
                   </tr>

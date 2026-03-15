@@ -8,12 +8,10 @@ import {
   updateSalaryStructure,
   getEmployeesByCompany,
   getSalaryStructure,
-  getPayrollConfiguration,
-  PayrollConfigurationResponseDto,
-  Employee
+  fetchPayrollConfigurationByCompanyId,
+  SalaryStructureRequest,
 } from '@/src/services/apiService';
-
-
+import { Employee, CompanySettings, Gender } from '../../types';
 
 export const SalaryList: React.FC = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -24,14 +22,15 @@ export const SalaryList: React.FC = () => {
   const [isPfApplicable, setIsPfApplicable] = useState(true);
   const [isEsicApplicable, setIsEsicApplicable] = useState(false);
 
-  const [config, setConfig] = useState<PayrollConfigurationResponseDto | null>(null);
+  const [config, setConfig] = useState<CompanySettings | null>(null);
   const [salaryExists, setSalaryExists] = useState(false);
-  const [selectedEmployeeGender, setSelectedEmployeeGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
+  const [selectedEmployeeGender, setSelectedEmployeeGender] = useState<Gender>(Gender.MALE);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const companyId = localStorage.getItem('companyId');
+  const userJson = localStorage.getItem('user');
+  const companyId = userJson ? JSON.parse(userJson).companyId : '';
 
   useEffect(() => {
     document.title = "Salary Structure - PayMaster";
@@ -47,8 +46,8 @@ export const SalaryList: React.FC = () => {
         const empData = await getEmployeesByCompany(companyId);
         setEmployees(empData);
 
-        const payrollConfig = await getPayrollConfiguration(companyId);
-        setConfig({ ...payrollConfig, isActive: true });
+        const payrollConfig = await fetchPayrollConfigurationByCompanyId(companyId);
+        setConfig(payrollConfig);
 
       } catch (err: any) {
         setError(err.message || "Failed to load data");
@@ -58,10 +57,10 @@ export const SalaryList: React.FC = () => {
     };
 
     loadInitialData();
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
-    if (!selectedEmpId || !companyId) return;
+    if (!selectedEmpId || !companyId || !config) return;
 
     const fetchSalary = async () => {
       try {
@@ -84,15 +83,17 @@ export const SalaryList: React.FC = () => {
 
     const selectedEmp = employees.find(e => e.employeeId === selectedEmpId);
     if (selectedEmp) {
-      setSelectedEmployeeGender(selectedEmp.gender || 'MALE');
+      setSelectedEmployeeGender(selectedEmp.gender || Gender.MALE);
     }
 
     fetchSalary();
-  }, [selectedEmpId, companyId, employees]);
+  }, [selectedEmpId, companyId, employees, config]);
 
   if (loading) return <div className="text-center py-5">Loading...</div>;
   if (error) return <div className="alert alert-danger text-center">{error}</div>;
   if (!config) return <div className="alert alert-warning text-center">Payroll configuration missing.</div>;
+
+  // --- PREVIEW CALCULATIONS (Matching Backend) ---
 
   const hra = config.hraApplicable ? (basicSalary * (config.hraPercentage || 0)) / 100 : 0;
   const conveyance = config.conveyanceApplicable ? (basicSalary * (config.conveyancePercentage || 0)) / 100 : 0;
@@ -100,18 +101,15 @@ export const SalaryList: React.FC = () => {
 
   const gross = basicSalary + hra + conveyance + medical + specialAllowance + bonusAmount;
 
-
-  const calculatePT = (gross: number, gender: string, month: number = 2) => {
+  // Professional Tax (Maharashtra)
+  const calculatePT = (gross: number, gender: Gender, month: number) => {
     if (gross <= 0) return 0;
-
-    const isFemale = gender === 'FEMALE';
+    const isFemale = gender === Gender.FEMALE;
     const isFeb = month === 2;
     let pt = 0;
-
     if (isFemale) {
       pt = gross > 25000 ? 200 : 0;
-    }
-    else {
+    } else {
       if (gross <= 7500) pt = 0;
       else if (gross <= 10000) pt = 175;
       else pt = 200;
@@ -121,17 +119,41 @@ export const SalaryList: React.FC = () => {
   };
 
   const currentMonth = new Date().getMonth() + 1;
-  const professionalTax = calculatePT(gross, selectedEmployeeGender, currentMonth === 2 ? 2 : 1);
+  const professionalTax = calculatePT(gross, selectedEmployeeGender, currentMonth);
 
+  // PF
   const pfEmployee = isPfApplicable ? Math.round((basicSalary * (config.pfEmployeePercentage || 0)) / 100) : 0;
-  
-  const esiEmpRate = 0.75;
-  const esiEmprRate = 3.25;
-  const esiEmployee = isEsicApplicable ? Math.round((gross * esiEmpRate) / 100) : 0;
-  const esiEmployer = isEsicApplicable ? Math.round((gross * esiEmprRate) / 100) : 0;
+  const pfEmployer = isPfApplicable ? Math.round((basicSalary * (config.pfEmployerPercentage || 0)) / 100) : 0;
+
+  // ESIC
+  const esiEmployee = isEsicApplicable ? Math.round((gross * 0.75) / 100) : 0;
+  const esiEmployer = isEsicApplicable ? Math.round((gross * 3.25) / 100) : 0;
   const totalEsicDeduction = esiEmployee + esiEmployer;
 
-  const totalDeductions = pfEmployee + totalEsicDeduction + professionalTax;
+  // Income Tax (Simplified Slab Calculation for Preview)
+  const calculateMonthlyIncomeTax = (gross: number) => {
+    const annualGross = gross * 12;
+    let annualTax = 0;
+    if (annualGross <= config.taxSlab1Limit) {
+      annualTax = (annualGross * config.taxSlab1Rate) / 100;
+    } else {
+      annualTax += (config.taxSlab1Limit * config.taxSlab1Rate) / 100;
+      const remaining1 = annualGross - config.taxSlab1Limit;
+      const slab2Width = config.taxSlab2Limit - config.taxSlab1Limit;
+      if (remaining1 <= slab2Width) {
+        annualTax += (remaining1 * config.taxSlab2Rate) / 100;
+      } else {
+        annualTax += (slab2Width * config.taxSlab2Rate) / 100;
+        const remaining2 = remaining1 - slab2Width;
+        annualTax += (remaining2 * config.taxSlab3Rate) / 100;
+      }
+    }
+    return annualTax / 12;
+  };
+
+  const incomeTax = calculateMonthlyIncomeTax(gross);
+
+  const totalDeductions = pfEmployee + totalEsicDeduction + professionalTax + incomeTax;
   const netSalary = gross - totalDeductions;
 
   const handleSave = async () => {
@@ -141,9 +163,9 @@ export const SalaryList: React.FC = () => {
     }
 
     try {
-      const payload = {
+      const payload: SalaryStructureRequest = {
         employeeId: selectedEmpId,
-        companyId: companyId!,
+        companyId: companyId,
         basicSalary,
         specialAllowance,
         bonusAmount: bonusAmount || 0,
@@ -160,20 +182,20 @@ export const SalaryList: React.FC = () => {
       }
       setSalaryExists(true);
     } catch (err: any) {
-      toast.error(err.message || "Save failed");
+      toast.error(err.response?.data?.message || err.message || "Save failed");
     }
   };
 
   return (
-    <div className="container py-4">
-      <div className="card shadow p-4">
+    <div className="container py-4 mb-5">
+      <div className="card shadow p-4 border-0">
         <h2 className="fw-bold mb-4">Employee Salary Structure</h2>
 
         <Select
           label="Select Employee"
           className="mb-4"
           options={employees.map(e => ({
-            label: `${e.name} (${e.designation}) - ${e.gender}`,
+            label: `${e.name} (${e.designation}) - ${e.empcode}`,
             value: e.employeeId
           }))}
           value={selectedEmpId}
@@ -184,15 +206,21 @@ export const SalaryList: React.FC = () => {
           <div className="row g-4">
             {/* LEFT FORM */}
             <div className="col-lg-6">
-              <div className="border rounded p-4 bg-light">
-                <h5 className="mb-3">Enter Salary Details</h5>
+              <div className="border rounded p-4 bg-light h-100">
+                <h5 className="mb-4 text-primary fw-bold">Enter Salary Details</h5>
 
-                <Input label="Basic Salary (₹)" type="text" value={basicSalary} onChange={(e) => setBasicSalary(parseFloat(e.target.value) || 0)} />
-                <Input label="Special Allowance (₹)" type="text" value={specialAllowance} onChange={(e) => setSpecialAllowance(parseFloat(e.target.value) || 0)} />
-                <Input label="Bonus Amount (₹)" type="text" value={bonusAmount} onChange={(e) => setBonusAmount(parseFloat(e.target.value) || 0)} />
+                <div className="mb-3">
+                  <Input label="Basic Salary (₹)" type="number" value={basicSalary} onChange={(e) => setBasicSalary(parseFloat(e.target.value) || 0)} />
+                </div>
+                <div className="mb-3">
+                  <Input label="Special Allowance (₹)" type="number" value={specialAllowance} onChange={(e) => setSpecialAllowance(parseFloat(e.target.value) || 0)} />
+                </div>
+                <div className="mb-3">
+                  <Input label="Bonus Amount (₹)" type="number" value={bonusAmount} onChange={(e) => setBonusAmount(parseFloat(e.target.value) || 0)} />
+                </div>
 
-                <div className="mt-3">
-                  <div className="form-check">
+                <div className="mt-4 border-top pt-3">
+                  <div className="form-check form-switch mb-2">
                     <input
                       className="form-check-input"
                       type="checkbox"
@@ -204,7 +232,7 @@ export const SalaryList: React.FC = () => {
                       PF Applicable
                     </label>
                   </div>
-                  <div className="form-check mt-2">
+                  <div className="form-check form-switch">
                     <input
                       className="form-check-input"
                       type="checkbox"
@@ -218,8 +246,8 @@ export const SalaryList: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-4">
-                  <Button className="w-100" onClick={handleSave}>
+                <div className="mt-5">
+                  <Button className="w-100 py-2 fs-5" onClick={handleSave}>
                     {salaryExists ? 'Update Salary Structure' : 'Create Salary Structure'}
                   </Button>
                 </div>
@@ -228,32 +256,44 @@ export const SalaryList: React.FC = () => {
 
             {/* RIGHT PREVIEW */}
             <div className="col-lg-6">
-              <div className="border rounded p-4 bg-primary bg-opacity-10">
-                <h5 className="mb-3 text-primary">Salary Preview (Current Month)</h5>
+              <div className="border rounded p-4 bg-white shadow-sm h-100">
+                <h5 className="mb-4 text-success fw-bold">Salary Preview (Monthly)</h5>
 
-                <SummaryRow label="Basic Salary" value={basicSalary} />
-                {config.hraApplicable && <SummaryRow label={`HRA (${config.hraPercentage}%)`} value={hra} />}
-                {config.conveyanceApplicable && <SummaryRow label={`Conveyance (${config.conveyancePercentage}%)`} value={conveyance} />}
-                {config.medicalApplicable && <SummaryRow label="Medical Allowance" value={medical} />}
-                <SummaryRow label="Special Allowance" value={specialAllowance} />
-                <SummaryRow label="Bonus" value={bonusAmount} />
+                <div className="preview-section mb-4">
+                  <h6 className="text-muted border-bottom pb-1 mb-3">Earnings</h6>
+                  <SummaryRow label="Basic Salary" value={basicSalary} />
+                  {config.hraApplicable && <SummaryRow label={`HRA (${config.hraPercentage}%)`} value={hra} />}
+                  {config.conveyanceApplicable && <SummaryRow label={`Conveyance (${config.conveyancePercentage}%)`} value={conveyance} />}
+                  {config.medicalApplicable && <SummaryRow label="Medical Allowance" value={medical} />}
+                  <SummaryRow label="Special Allowance" value={specialAllowance} />
+                  <SummaryRow label="Bonus" value={bonusAmount} />
+                  <SummaryRow label="Gross Salary" value={gross} bold text="text-dark" />
+                </div>
 
-                <hr />
-                <SummaryRow label="Gross Salary" value={gross} bold />
+                <div className="preview-section mb-4">
+                  <h6 className="text-muted border-bottom pb-1 mb-3">Deductions</h6>
+                  {isPfApplicable && pfEmployee > 0 && <SummaryRow label="PF (Employee)" value={-pfEmployee} />}
+                  {isEsicApplicable && (
+                    <>
+                      <SummaryRow label="ESIC (Employee + Employer 4%)" value={-totalEsicDeduction} />
+                    </>
+                  )}
+                  <SummaryRow label="Professional Tax" value={-professionalTax} />
+                  <SummaryRow label="Income Tax (Estimated)" value={-incomeTax} />
+                  <SummaryRow label="Total Deductions" value={-totalDeductions} bold text="text-danger" />
+                </div>
 
-                <hr />
-                {isPfApplicable && pfEmployee > 0 && <SummaryRow label="PF (Employee)" value={-pfEmployee} />}
-                {isEsicApplicable && (
-                  <>
-                    <SummaryRow label="ESIC (Employee 0.75%)" value={-esiEmployee} />
-                    <SummaryRow label="ESIC (Employer 3.25%)" value={-esiEmployer} />
-                    <SummaryRow label="Total ESIC Deduction (4%)" value={-totalEsicDeduction} bold />
-                  </>
-                )}
-                <SummaryRow label="Professional Tax" value={-professionalTax} />
-
-                <hr />
-                <SummaryRow label="Net Take-Home" value={netSalary} bold large text="text-success" />
+                <div className="pt-3 border-top mt-auto">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="fw-bold fs-4">Net Take-Home</span>
+                    <span className="fw-bold fs-3 text-success">
+                      ₹{Math.round(netSalary).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="text-end text-muted small mt-1">
+                    Annual CTC: ₹{Math.round((gross + pfEmployer + esiEmployer) * 12).toLocaleString('en-IN')}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -263,11 +303,11 @@ export const SalaryList: React.FC = () => {
   );
 };
 
-const SummaryRow = ({ label, value, bold, large, text }: any) => (
+const SummaryRow = ({ label, value, bold, text }: any) => (
   <div className="d-flex justify-content-between mb-2">
     <span className={bold ? 'fw-bold' : ''}>{label}</span>
-    <span className={`${bold ? 'fw-bold' : ''} ${large ? 'fs-4' : ''} ${text || ''}`}>
-      ₹{Math.round(value).toLocaleString('en-IN')}
+    <span className={`${bold ? 'fw-bold' : ''} ${text || ''}`}>
+      {value < 0 ? '-' : ''}₹{Math.abs(Math.round(value)).toLocaleString('en-IN')}
     </span>
   </div>
 );

@@ -4,34 +4,39 @@ import toast from 'react-hot-toast';
 import {
     getEmployeeById,
     updateEmployee,
-    EmployeeResponseDto,
-    EmployeeUpdateRequestDto,
+    EmployeeUpdate,
 } from '@/src/services/apiService';
+import { Employee, Gender } from '../../types';
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 
 const UpdateEmployee: React.FC = () => {
     const { employeeId } = useParams<{ employeeId: string }>();
     const navigate = useNavigate();
 
-    const [employee, setEmployee] = useState<EmployeeResponseDto | null>(null);
+    const [employee, setEmployee] = useState<Employee | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const [form, setForm] = useState<EmployeeUpdateRequestDto>({
+    const [form, setForm] = useState<EmployeeUpdate>({
         name: '',
         email: '',
         contactNumber: '',
         department: '',
         birthdate: '',
         designation: '',
-        gender: 'MALE',
+        gender: Gender.MALE,
         joiningDate: '',
-        companyId: undefined
+        pan: '',
+        bankName: '',
+        accountNumber: '',
+        esicNumber: '',
+        uanNumber: '',
+        location: '',
+        companyId: ''
     });
 
-    // ────────────────────────────────────────────────
-    // Fetch employee details
-    // ────────────────────────────────────────────────
     const fetchEmployee = async () => {
         if (!employeeId) return;
 
@@ -47,9 +52,15 @@ const UpdateEmployee: React.FC = () => {
                 department: data.department || '',
                 birthdate: data.birthdate || '',
                 designation: data.designation || '',
-                gender: data.gender || 'MALE',
+                gender: data.gender || Gender.MALE,
                 joiningDate: data.joiningDate || '',
-                companyId: data.companyId
+                pan: data.pan || '',
+                bankName: data.bankName || '',
+                accountNumber: data.accountNumber || '',
+                esicNumber: data.esicNumber || '',
+                uanNumber: data.uanNumber || '',
+                location: data.location || '',
+                companyId: data.companyId || ''
             });
         } catch (err: any) {
             const msg = err.message || 'Failed to fetch employee';
@@ -64,9 +75,6 @@ const UpdateEmployee: React.FC = () => {
         fetchEmployee();
     }, [employeeId]);
 
-    // ────────────────────────────────────────────────
-    // Form handlers
-    // ────────────────────────────────────────────────
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
@@ -77,9 +85,6 @@ const UpdateEmployee: React.FC = () => {
         }));
     };
 
-    // ────────────────────────────────────────────────
-    // Form submit
-    // ────────────────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!employeeId) return;
@@ -87,26 +92,16 @@ const UpdateEmployee: React.FC = () => {
         setSaving(true);
 
         try {
-            const payload: EmployeeUpdateRequestDto = {
-                ...form,
-                birthdate: form.birthdate || undefined,
-                joiningDate: form.joiningDate || undefined
-            };
-
-            await updateEmployee(employeeId, payload);
-
+            await updateEmployee(employeeId, form);
             toast.success('Employee updated successfully!');
             navigate(`/employees/${employeeId}`);
         } catch (err: any) {
-            toast.error(err.message || 'Failed to update employee');
+            toast.error(err.response?.data?.message || err.message || 'Failed to update employee');
         } finally {
             setSaving(false);
         }
     };
 
-    // ────────────────────────────────────────────────
-    // UI States
-    // ────────────────────────────────────────────────
     if (loading) {
         return (
             <div className="text-center py-5">
@@ -124,136 +119,94 @@ const UpdateEmployee: React.FC = () => {
         );
     }
 
-    // ────────────────────────────────────────────────
-    // MAIN FORM UI
-    // ────────────────────────────────────────────────
     return (
-        <div className="container-fluid py-4">
+        <div className="container py-4 mb-5">
             <h2 className="fw-bold mb-4">Update Employee</h2>
 
             <div className="card shadow-sm border-0">
                 <div className="card-body p-4">
-                    <form onSubmit={handleSubmit}>
-
-                        {/* Name */}
-                        <div className="mb-3">
-                            <label className="form-label">Name</label>
-                            <input
-                                type="text"
-                                name="name"
-                                className="form-control"
-                                value={form.name}
-                                onChange={handleChange}
-                                required
-                            />
+                    <form onSubmit={handleSubmit} className="row g-3">
+                        <div className="col-12">
+                            <h5 className="border-bottom pb-2 mb-3 text-primary">Basic Information</h5>
                         </div>
 
-                        {/* Email */}
-                        <div className="mb-3">
-                            <label className="form-label">Email</label>
-                            <input
-                                type="email"
-                                name="email"
-                                className="form-control"
-                                value={form.email}
-                                onChange={handleChange}
-                                required
-                            />
+                        <div className="col-md-6">
+                            <Input label="Name" name="name" value={form.name} onChange={handleChange} required />
                         </div>
 
-                        {/* Contact Number */}
-                        <div className="mb-3">
-                            <label className="form-label">Contact Number</label>
-                            <input
-                                type="text"
-                                name="contactNumber"
-                                className="form-control"
-                                value={form.contactNumber}
-                                onChange={handleChange}
-                            />
+                        <div className="col-md-6">
+                            <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange} required />
                         </div>
 
-                        {/* Department */}
-                        <div className="mb-3">
-                            <label className="form-label">Department</label>
-                            <input
-                                type="text"
-                                name="department"
-                                className="form-control"
-                                value={form.department}
-                                onChange={handleChange}
-                            />
+                        <div className="col-md-4">
+                            <Input label="Contact Number" name="contactNumber" value={form.contactNumber} onChange={handleChange} required />
                         </div>
 
-                        {/* Designation */}
-                        <div className="mb-3">
-                            <label className="form-label">Designation</label>
-                            <input
-                                type="text"
-                                name="designation"
-                                className="form-control"
-                                value={form.designation}
-                                onChange={handleChange}
-                            />
-                        </div>
-
-                        {/* Gender */}
-                        <div className="mb-3">
+                        <div className="col-md-4">
                             <label className="form-label">Gender</label>
-                            <select
-                                name="gender"
-                                className="form-select"
-                                value={form.gender}
-                                onChange={handleChange}
-                            >
-                                <option value="MALE">Male</option>
-                                <option value="FEMALE">Female</option>
-                                <option value="OTHER">Other</option>
+                            <select name="gender" className="form-select" value={form.gender} onChange={handleChange} required>
+                                <option value={Gender.MALE}>Male</option>
+                                <option value={Gender.FEMALE}>Female</option>
+                                <option value={Gender.OTHER}>Other</option>
                             </select>
                         </div>
 
-                        {/* Birthdate */}
-                        <div className="mb-3">
-                            <label className="form-label">Birthdate</label>
-                            <input
-                                type="date"
-                                name="birthdate"
-                                className="form-control"
-                                value={form.birthdate || ''}
-                                onChange={handleChange}
-                            />
+                        <div className="col-md-4">
+                            <Input label="Birthdate" name="birthdate" type="date" value={form.birthdate} onChange={handleChange} required />
                         </div>
 
-                        {/* Joining Date */}
-                        <div className="mb-3">
-                            <label className="form-label">Joining Date</label>
-                            <input
-                                type="date"
-                                name="joiningDate"
-                                className="form-control"
-                                value={form.joiningDate || ''}
-                                onChange={handleChange}
-                            />
+                        <div className="col-12 mt-4">
+                            <h5 className="border-bottom pb-2 mb-3 text-primary">Employment Details</h5>
                         </div>
 
-                        {/* Buttons */}
-                        <div className="mt-4 d-flex gap-2">
-                            <button
-                                type="submit"
-                                className="btn btn-primary"
-                                disabled={saving}
-                            >
-                                {saving ? 'Saving...' : 'Update Employee'}
-                            </button>
+                        <div className="col-md-4">
+                            <Input label="Department" name="department" value={form.department} onChange={handleChange} required />
+                        </div>
 
-                            <Link
-                                to={`/employees/${employeeId}`}
-                                className="btn btn-secondary"
-                            >
+                        <div className="col-md-4">
+                            <Input label="Designation" name="designation" value={form.designation} onChange={handleChange} required />
+                        </div>
+
+                        <div className="col-md-4">
+                            <Input label="Joining Date" name="joiningDate" type="date" value={form.joiningDate} onChange={handleChange} required />
+                        </div>
+
+                        <div className="col-md-4">
+                            <Input label="Location" name="location" value={form.location} onChange={handleChange} required />
+                        </div>
+
+                        <div className="col-12 mt-4">
+                            <h5 className="border-bottom pb-2 mb-3 text-primary">Statutory & Bank Details</h5>
+                        </div>
+
+                        <div className="col-md-4">
+                            <Input label="PAN" name="pan" value={form.pan} onChange={handleChange} required />
+                        </div>
+
+                        <div className="col-md-4">
+                            <Input label="UAN Number" name="uanNumber" value={form.uanNumber} onChange={handleChange} />
+                        </div>
+
+                        <div className="col-md-4">
+                            <Input label="ESIC Number" name="esicNumber" value={form.esicNumber} onChange={handleChange} />
+                        </div>
+
+                        <div className="col-md-6">
+                            <Input label="Bank Name" name="bankName" value={form.bankName} onChange={handleChange} required />
+                        </div>
+
+                        <div className="col-md-6">
+                            <Input label="Account Number" name="accountNumber" value={form.accountNumber} onChange={handleChange} required />
+                        </div>
+
+                        <div className="mt-4 d-flex gap-2 justify-content-end">
+                            <Button type="button" variant="secondary" onClick={() => navigate(`/employees/${employeeId}`)}>
                                 Cancel
-                            </Link>
+                            </Button>
+                            <Button type="submit" isLoading={saving}>
+                                Update Employee
+                            </Button>
                         </div>
-
                     </form>
                 </div>
             </div>

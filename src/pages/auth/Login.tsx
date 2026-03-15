@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { login } from '@/src/services/apiService';
 import toast from 'react-hot-toast';
-import { Input } from '../../components/ui/Input';   // ← Your Bootstrap Input
-import { Button } from '../../components/ui/Button';   // ← Your Bootstrap Button
+import { Input } from '../../components/ui/Input';
+import { Button } from '../../components/ui/Button';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -21,13 +21,16 @@ export const Login: React.FC = () => {
     setError(null);
 
     try {
-      const { token, userId, username, companyId, userRole } = await login(formData);
+      const userData = await login(formData);
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('userId', userId);
-      localStorage.setItem('username', username);
-      localStorage.setItem('companyId', companyId);
-      localStorage.setItem('userRole', userRole);
+      localStorage.setItem('token', userData.token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Compatibility for older components if any still use these directly
+      localStorage.setItem('userId', userData.userId);
+      localStorage.setItem('username', userData.username);
+      localStorage.setItem('companyId', userData.companyId);
+      localStorage.setItem('userRole', userData.userRole);
 
       toast.success('Login successful!');
       navigate('/dashboard');
@@ -44,13 +47,8 @@ export const Login: React.FC = () => {
         <div className="card-body p-5">
 
           {/* Logo */}
-          <div className="  mb-4">
-            <img
-              src="/logo.png"
-              alt="payMaster Logo"
-              className="img-fluid justify-content-center align-items-center"
-              style={{ width: '80px', height: '80px', objectFit: 'contain' }}
-            />
+          <div className="text-center mb-4">
+            <h2 className="fw-bold text-primary display-4">PayMaster</h2>
           </div>
 
           {/* Title */}
@@ -93,7 +91,7 @@ export const Login: React.FC = () => {
               />
             </div>
 
-            <div className="col-12">
+            <div className="col-12 mt-4">
               <Button
                 type="submit"
                 variant="primary"

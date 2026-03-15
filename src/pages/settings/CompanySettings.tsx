@@ -5,24 +5,27 @@ import toast from 'react-hot-toast';
 import {
   fetchPayrollConfigurationByCompanyId,
   updatePayrollConfig,
-  PayrollConfigurationRequestDto,
-  PayrollConfigurationResponseDto,
-  addPayrollConfiguration
+  addPayrollConfiguration,
+  PayrollConfigurationRequest
 } from '@/src/services/apiService';
+import { CompanySettings } from '../../types';
 
 export const CompanySettingsPage: React.FC = () => {
-  const storedCompanyId = localStorage.getItem('companyId') || '';
+  const userJson = localStorage.getItem('user');
+  const storedCompanyId = userJson ? JSON.parse(userJson).companyId : '';
 
-  const [settings, setSettings] = useState<PayrollConfigurationRequestDto>({
+  const [settings, setSettings] = useState<PayrollConfigurationRequest>({
     companyId: storedCompanyId,
 
     hraApplicable: false,
     conveyanceApplicable: false,
     medicalApplicable: false,
+    bonusApplicable: false,
 
     hraPercentage: 0,
     conveyancePercentage: 0,
     medicalAllowanceAmount: 0,
+    bonusPercentage: 0,
 
     isPfApplicable: false,
     isEsicApplicable: false,
@@ -31,12 +34,15 @@ export const CompanySettingsPage: React.FC = () => {
     pfEmployerPercentage: 0,
     esiEmployeePercentage: 0,
     esiEmployerPercentage: 0,
+    professionalTax: 0,
 
     taxSlab1Limit: 0,
     taxSlab1Rate: 0,
     taxSlab2Limit: 0,
     taxSlab2Rate: 0,
-    taxSlab3Rate: 0
+    taxSlab3Limit: 0,
+    taxSlab3Rate: 0,
+    isActive: true
   });
 
   const [loading, setLoading] = useState(true);
@@ -55,7 +61,7 @@ export const CompanySettingsPage: React.FC = () => {
 
       setLoading(true);
       try {
-        const data: PayrollConfigurationResponseDto | null =
+        const data: CompanySettings | null =
           await fetchPayrollConfigurationByCompanyId(storedCompanyId);
 
         if (data) {
@@ -65,10 +71,12 @@ export const CompanySettingsPage: React.FC = () => {
             hraApplicable: data.hraApplicable ?? false,
             conveyanceApplicable: data.conveyanceApplicable ?? false,
             medicalApplicable: data.medicalApplicable ?? false,
+            bonusApplicable: data.bonusApplicable ?? false,
 
             hraPercentage: data.hraPercentage ?? 0,
             conveyancePercentage: data.conveyancePercentage ?? 0,
             medicalAllowanceAmount: data.medicalAllowanceAmount ?? 0,
+            bonusPercentage: data.bonusPercentage ?? 0,
 
             isPfApplicable: data.isPfApplicable ?? false,
             isEsicApplicable: data.isEsicApplicable ?? false,
@@ -77,12 +85,15 @@ export const CompanySettingsPage: React.FC = () => {
             pfEmployerPercentage: data.pfEmployerPercentage ?? 0,
             esiEmployeePercentage: data.esiEmployeePercentage ?? 0,
             esiEmployerPercentage: data.esiEmployerPercentage ?? 0,
+            professionalTax: data.professionalTax ?? 0,
 
             taxSlab1Limit: data.taxSlab1Limit ?? 0,
             taxSlab1Rate: data.taxSlab1Rate ?? 0,
             taxSlab2Limit: data.taxSlab2Limit ?? 0,
             taxSlab2Rate: data.taxSlab2Rate ?? 0,
-            taxSlab3Rate: data.taxSlab3Rate ?? 0
+            taxSlab3Limit: data.taxSlab3Limit ?? 0,
+            taxSlab3Rate: data.taxSlab3Rate ?? 0,
+            isActive: data.isActive ?? true
           });
           setIsNewConfig(false);
         } else {
@@ -149,27 +160,35 @@ export const CompanySettingsPage: React.FC = () => {
                 <h5 className="border-bottom pb-2 mb-3">Allowances</h5>
 
                 <div className="form-check mb-3">
-                  <input type="checkbox" className="form-check-input" name="hraApplicable" checked={settings.hraApplicable} onChange={handleChange} />
-                  <label className="form-check-label">HRA Applicable</label>
+                  <input type="checkbox" className="form-check-input" name="hraApplicable" id="hraApplicable" checked={settings.hraApplicable} onChange={handleChange} />
+                  <label className="form-check-label" htmlFor="hraApplicable">HRA Applicable</label>
                 </div>
                 {settings.hraApplicable && (
-                  <Input label="HRA %" name="hraPercentage" type="text" value={settings.hraPercentage} onChange={handleChange} />
+                  <Input label="HRA %" name="hraPercentage" type="number" step="0.01" value={settings.hraPercentage} onChange={handleChange} />
                 )}
 
                 <div className="form-check mb-3 mt-4">
-                  <input type="checkbox" className="form-check-input" name="conveyanceApplicable" checked={settings.conveyanceApplicable} onChange={handleChange} />
-                  <label className="form-check-label">Conveyance Applicable</label>
+                  <input type="checkbox" className="form-check-input" name="conveyanceApplicable" id="conveyanceApplicable" checked={settings.conveyanceApplicable} onChange={handleChange} />
+                  <label className="form-check-label" htmlFor="conveyanceApplicable">Conveyance Applicable</label>
                 </div>
                 {settings.conveyanceApplicable && (
-                  <Input label="Conveyance %" name="conveyancePercentage" type="text" value={settings.conveyancePercentage} onChange={handleChange} />
+                  <Input label="Conveyance %" name="conveyancePercentage" type="number" step="0.01" value={settings.conveyancePercentage} onChange={handleChange} />
                 )}
 
                 <div className="form-check mb-3 mt-4">
-                  <input type="checkbox" className="form-check-input" name="medicalApplicable" checked={settings.medicalApplicable} onChange={handleChange} />
-                  <label className="form-check-label">Medical Allowance Applicable</label>
+                  <input type="checkbox" className="form-check-input" name="medicalApplicable" id="medicalApplicable" checked={settings.medicalApplicable} onChange={handleChange} />
+                  <label className="form-check-label" htmlFor="medicalApplicable">Medical Allowance Applicable</label>
                 </div>
                 {settings.medicalApplicable && (
-                  <Input label="Medical Allowance (₹)" name="medicalAllowanceAmount" type="text" value={settings.medicalAllowanceAmount} onChange={handleChange} />
+                  <Input label="Medical Allowance (₹)" name="medicalAllowanceAmount" type="number" step="0.01" value={settings.medicalAllowanceAmount} onChange={handleChange} />
+                )}
+
+                <div className="form-check mb-3 mt-4">
+                  <input type="checkbox" className="form-check-input" name="bonusApplicable" id="bonusApplicable" checked={settings.bonusApplicable} onChange={handleChange} />
+                  <label className="form-check-label" htmlFor="bonusApplicable">Bonus Applicable</label>
+                </div>
+                {settings.bonusApplicable && (
+                  <Input label="Bonus %" name="bonusPercentage" type="number" step="0.01" value={settings.bonusPercentage} onChange={handleChange} />
                 )}
               </div>
             </div>
@@ -180,29 +199,37 @@ export const CompanySettingsPage: React.FC = () => {
                 <h5 className="border-bottom pb-2 mb-3">Statutory Deductions</h5>
 
                 <div className="form-check mb-3">
-                  <input type="checkbox" className="form-check-input" name="isPfApplicable" checked={settings.isPfApplicable} onChange={handleChange} />
-                  <label className="form-check-label">PF Applicable</label>
+                  <input type="checkbox" className="form-check-input" name="isPfApplicable" id="isPfApplicable" checked={settings.isPfApplicable} onChange={handleChange} />
+                  <label className="form-check-label" htmlFor="isPfApplicable">PF Applicable</label>
                 </div>
                 {settings.isPfApplicable && (
-                  <>
-                    <Input label="PF Employee %" name="pfEmployeePercentage" type="text" step="0.01" value={settings.pfEmployeePercentage} onChange={handleChange} />
-                    <Input label="PF Employer %" name="pfEmployerPercentage" type="text" step="0.01" value={settings.pfEmployerPercentage} onChange={handleChange} />
-                  </>
-                )}
-
-                <div className="form-check mb-3 mt-4">
-                  <input type="checkbox" className="form-check-input" name="isEsicApplicable" checked={settings.isEsicApplicable} onChange={handleChange} />
-                  <label className="form-check-label">ESIC Applicable</label>
-                </div>
-                {settings.isEsicApplicable && (
-                  <div className="alert alert-warning py-2 small">
-                    ESIC calculation: <strong>0.75%</strong> (Employee) + <strong>3.25%</strong> (Employer). 
-                    Total 4% will be deducted from employee salary.
+                  <div className="row g-2">
+                    <div className="col-md-6">
+                      <Input label="PF Employee %" name="pfEmployeePercentage" type="number" step="0.01" value={settings.pfEmployeePercentage} onChange={handleChange} />
+                    </div>
+                    <div className="col-md-6">
+                      <Input label="PF Employer %" name="pfEmployerPercentage" type="number" step="0.01" value={settings.pfEmployerPercentage} onChange={handleChange} />
+                    </div>
                   </div>
                 )}
 
-                <div className="alert alert-info mt-4">
-                  <strong>Professional Tax</strong> is calculated automatically based on Maharashtra rules (gender + salary slab + February surcharge).
+                <div className="form-check mb-3 mt-4">
+                  <input type="checkbox" className="form-check-input" name="isEsicApplicable" id="isEsicApplicable" checked={settings.isEsicApplicable} onChange={handleChange} />
+                  <label className="form-check-label" htmlFor="isEsicApplicable">ESIC Applicable</label>
+                </div>
+                {settings.isEsicApplicable && (
+                  <div className="row g-2">
+                    <div className="col-md-6">
+                      <Input label="ESI Employee %" name="esiEmployeePercentage" type="number" step="0.01" value={settings.esiEmployeePercentage} onChange={handleChange} />
+                    </div>
+                    <div className="col-md-6">
+                      <Input label="ESI Employer %" name="esiEmployerPercentage" type="number" step="0.01" value={settings.esiEmployerPercentage} onChange={handleChange} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4">
+                   <Input label="Professional Tax (₹)" name="professionalTax" type="number" value={settings.professionalTax} onChange={handleChange} />
                 </div>
               </div>
             </div>
@@ -213,19 +240,23 @@ export const CompanySettingsPage: React.FC = () => {
             <div className="card p-4">
               <h5 className="border-bottom pb-2 mb-3">Income Tax Slabs (Annual)</h5>
               <div className="row g-3">
-                <div className="col-md-4"><Input label="Up to ₹" name="taxSlab1Limit" type="text" value={settings.taxSlab1Limit} onChange={handleChange} /></div>
-                <div className="col-md-4"><Input label="Tax Rate %" name="taxSlab1Rate" type="text" step="0.01" value={settings.taxSlab1Rate} onChange={handleChange} /></div>
+                <div className="col-md-4"><Input label="Slab 1 Limit (₹)" name="taxSlab1Limit" type="number" value={settings.taxSlab1Limit} onChange={handleChange} /></div>
+                <div className="col-md-4"><Input label="Slab 1 Rate %" name="taxSlab1Rate" type="number" step="0.01" value={settings.taxSlab1Rate} onChange={handleChange} /></div>
               </div>
               <div className="row g-3 mt-2">
-                <div className="col-md-4"><Input label="Above ₹" name="taxSlab2Limit" type="text" value={settings.taxSlab2Limit} onChange={handleChange} /></div>
-                <div className="col-md-4"><Input label="Tax Rate %" name="taxSlab2Rate" type="text" step="0.01" value={settings.taxSlab2Rate} onChange={handleChange} /></div>
+                <div className="col-md-4"><Input label="Slab 2 Limit (₹)" name="taxSlab2Limit" type="number" value={settings.taxSlab2Limit} onChange={handleChange} /></div>
+                <div className="col-md-4"><Input label="Slab 2 Rate %" name="taxSlab2Rate" type="number" step="0.01" value={settings.taxSlab2Rate} onChange={handleChange} /></div>
               </div>
               <div className="row g-3 mt-2">
-                <div className="col-md-4 offset-md-4">
-                  <Input label="Above Slab 2 Tax %" name="taxSlab3Rate" type="text" step="0.01" value={settings.taxSlab3Rate} onChange={handleChange} />
-                </div>
+                <div className="col-md-4"><Input label="Slab 3 Limit (₹)" name="taxSlab3Limit" type="number" value={settings.taxSlab3Limit} onChange={handleChange} /></div>
+                <div className="col-md-4"><Input label="Slab 3 Rate %" name="taxSlab3Rate" type="number" step="0.01" value={settings.taxSlab3Rate} onChange={handleChange} /></div>
               </div>
             </div>
+          </div>
+
+          <div className="form-check form-switch mt-4 fs-5">
+            <input className="form-check-input" type="checkbox" role="switch" id="isActive" name="isActive" checked={settings.isActive} onChange={handleChange} />
+            <label className="form-check-label" htmlFor="isActive">Configuration Active</label>
           </div>
 
           {/* Save Button */}
